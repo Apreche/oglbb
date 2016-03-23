@@ -1,0 +1,600 @@
+head	1.7;
+access;
+symbols;
+locks
+	apreche:1.7; strict;
+comment	@ * @;
+
+
+1.7
+date	2004.02.18.23.03.27;	author apreche;	state Exp;
+branches;
+next	1.6;
+
+1.6
+date	2004.02.16.23.35.20;	author apreche;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2004.02.16.23.08.42;	author apreche;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2004.02.16.23.02.18;	author apreche;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2004.02.15.20.47.07;	author apreche;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2004.02.15.18.09.51;	author apreche;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2004.02.14.21.19.26;	author apreche;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.7
+log
+@hand this in
+@
+text
+@/* oglfunc.c
+ *
+ * OpenGL functions
+ *
+ * Open GL Building Blocks
+ * Copyright 2004 Scott Rubin
+ *
+ * This file is part of oglbb.
+ *
+ * Foobar is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Foobar is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Foobar; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+ 
+#include <stdio.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <glib.h>
+#include <gdk/gdk.h>
+#include <gtk/gtk.h>
+#include <gtk/gtkgl.h>
+#include "oglfunc.h"
+
+#define MAX_BRICKS 1024
+
+/* OPENGL DATA */
+float zoom;
+struct brick model[MAX_BRICKS];
+int numbricks;
+struct brick current;
+float rotatex, rotatey, rotatez;
+float panx, pany, panz;
+int grid;
+int origin;
+
+/* LIGHTS DEFINED */
+int light = 1;
+GLfloat lightpos[] = { 3.0, 3.0, 3.0, 0.0 };
+GLfloat lightN[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat lightY[] = { 1.0, 1.0, 1.0, 0.0 };
+
+/* CHEAP HACK TO ERASE ALL BRICKS */
+/* However, it does work and does perform well */
+void eraseall(){
+	numbricks = 0;
+}	
+
+/* Put current at origin */
+void movereset(){
+	current.x = 0;
+	current.y = 0;
+	current.z = 0;
+}
+
+/* Undo all rotattions */
+void rotatereset(){
+	rotatex = 0;
+	rotatey = 0;
+	rotatez = 0;
+}
+
+/* Undo all panning */
+void panreset(){
+	panx = 0;
+	pany = 0;
+	panz = 0;
+}
+
+/* Set zoom to default */
+void zoomreset(){
+	zoom = 0.05;
+}
+
+/* RESET EVERYTHING! */
+void resetall(){
+	movereset();
+	rotatereset();
+	panreset();
+	zoomreset();
+}
+
+/* moves the selector brick */
+void moveBlock( int x, int y, int z ){
+	current.x += x;
+	current.y += y;
+	current.z += z;
+}
+
+/* delete selected brick */
+void clearBlock() {
+
+	int brick = -1;
+	for( int n=0; n < numbricks; n++ ){
+		if( model[n].x == current.x &&
+			model[n].y == current.y &&
+			model[n].z == current.z ){
+					brick = n;
+		}
+	}
+	if( brick != -1 ){
+		for( brick; brick < numbricks-1; brick++ ){
+			model[brick] = model[brick+1];
+		}
+		numbricks--;
+	}
+}
+
+
+/* places brick of appropriate color at selected space */
+void setBlock(){
+	int replace=0;
+	if( numbricks < 500 ){
+		for( int n=0; n < numbricks; n++ ){
+			if( model[n].x == current.x &&
+				model[n].y == current.y &&
+				model[n].z == current.z ){
+					model[n] = current;
+					replace = 1;
+			}
+		}
+		if( replace == 0 ){
+			model[numbricks] = current;
+			numbricks++;
+		}
+	}else{
+		printf( "OUT OF BRICKS\n" );
+	}
+}
+
+/* Draws the lights */
+void drawLight(){
+	glLightfv( GL_LIGHT0, GL_AMBIENT, lightY );
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, lightN );
+	glLightfv( GL_LIGHT0, GL_SPECULAR, lightN );
+	glLightfv( GL_LIGHT0, GL_POSITION, lightpos );
+	
+	glLightfv( GL_LIGHT1, GL_AMBIENT, lightN);
+	glLightfv( GL_LIGHT1, GL_DIFFUSE, lightY );
+	glLightfv( GL_LIGHT1, GL_SPECULAR, lightN );
+	glLightfv( GL_LIGHT1, GL_POSITION, lightpos );
+	
+	glLightfv( GL_LIGHT2, GL_AMBIENT, lightN );
+	glLightfv( GL_LIGHT2, GL_DIFFUSE, lightN );
+	glLightfv( GL_LIGHT2, GL_SPECULAR, lightY );
+	glLightfv( GL_LIGHT2, GL_POSITION, lightpos );
+}
+
+/* Draws a single cube */
+void drawCube( struct brick b ){
+	glPushMatrix();
+		glColor3ub( b.r, b.g, b.b );
+		glTranslatef( zoom * b.x, zoom *  b.y, zoom * b.z );
+		gdk_gl_draw_cube( TRUE, zoom );
+	glPopMatrix();
+}
+
+/* DRAW THE GRID */
+void drawGrid(){
+	glPushMatrix();
+	glColor3ub( 255, 255, 255 );
+	glBegin( GL_LINES );
+		for( float x = 0; x < 1; x += zoom ){
+			glVertex3f( x, 0, 0 );
+			glVertex3f( x, 0, 1 );
+		}
+		for( float z = 0; z < 1; z += zoom ){
+			glVertex3f( 0, 0, z );
+			glVertex3f( 1, 0, z );
+		}
+	glEnd();
+	glPopMatrix();
+				
+}
+
+/* DRAW THE ORIGIN AXES */
+void drawOrigin(){
+	glPushMatrix();
+	glColor3ub( 255, 0, 0 );
+		glBegin( GL_LINES );
+			glVertex3i( 0, 0, 0 );
+			glVertex3i( 1, 0, 0 );
+		glEnd();
+		glColor3ub( 0, 255, 0 );
+		glBegin( GL_LINES );
+			glVertex3i( 0, 0, 0 );
+			glVertex3i( 0, 1, 0 );
+		glEnd();
+		glColor3ub( 0, 0, 255 );
+		glBegin( GL_LINES );
+			glVertex3i( 0, 0, 0 );
+			glVertex3i( 0, 0, 1 );
+		glEnd();
+	glPopMatrix();
+}
+
+/* draw all the cubes in the model, then the selector brick */
+void drawStuff(){
+	glTranslatef( panx, pany, panz );
+	glPushMatrix();
+	
+	/* ROTATE */
+	glRotatef( rotatex, 1.0, 0.0, 0.0 );
+	glRotatef( rotatey, 0.0, 1.0, 0.0 );
+	glRotatef( rotatez, 0.0, 0.0, 1.0 );
+	
+	/*Draw the selector block, always ambiently lighted */
+	glDisable( GL_LIGHTING );
+	if( origin == 0 ){
+		drawOrigin();
+	}
+	if( grid == 0 ){
+		drawGrid();
+	}
+	glPushMatrix();
+		glColor3ub( 255, 255, 255 );
+		glTranslatef( zoom * current.x, zoom * current.y, zoom * current.z );
+		gdk_gl_draw_cube( FALSE, zoom );
+		glColor3ub( current.r, current.g, current.b );
+		gdk_gl_draw_cube( TRUE, zoom );
+	glPopMatrix();
+	glEnable( GL_LIGHTING );
+	
+	/* Draw all the other blocks in the model */
+	glPushMatrix();
+		for( int x=0; x < numbricks; x++ ){
+			drawCube( model[x] );
+		}
+	glPopMatrix();
+	glPopMatrix();
+}
+
+/* ALMIGHTY DISPLAY FUNCTION!!! */
+void display(){
+
+	/* TURN OFF THAT LIGHT! */
+	glDisable( GL_LIGHTING );
+	
+	glViewport( 0, 0, 800, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	gluOrtho2D( 0, 800, 0, 600 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glColor3ub( 255, 255, 255 );
+	
+	/* seperate the viewports with lines */
+	glColor3ub( 255, 255, 255 );
+	glBegin( GL_LINES );
+		glVertex2i( 600, 0 );
+		glVertex2i( 600, 600 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 200 );
+		glVertex2i( 800, 200 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 400 );
+		glVertex2i( 800, 400 );
+	glEnd();
+	
+	/* LET THERE BE LIGHT! */
+	glEnable( GL_LIGHTING );
+	
+	if( light == 0 ){
+		glEnable( GL_LIGHT0 );
+		glDisable( GL_LIGHT1 );
+		glDisable( GL_LIGHT2 );
+	}else{
+		glDisable( GL_LIGHT0 );
+		glEnable( GL_LIGHT1 );
+		glEnable( GL_LIGHT2 );
+	}
+	drawLight();
+	
+	/* FRONT VIEWPORT */
+	glViewport( 600, 400, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.5, 0.5, 3.0, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	/* TOP VIEWPORT */
+	glViewport( 600, 200, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.5, 3.0, 0.5, 0.5, 0.5, 0.5, 0.0, 0.0, -1.0 );
+	drawStuff();
+	
+	/* SIDE VIEWPORT */
+	glViewport( 600, 0, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 3.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	/* ANGULAR VIEWPORT (the big one) */
+	glViewport( 0, 0, 600, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0 );
+	drawStuff();
+
+}
+@
+
+
+1.6
+log
+@version 1.0
+ph33r!!!
+@
+text
+@a6 4
+ * 
+ * Portions of this code were borrowed from the following sources:
+ * examples in gtkglext cvs repository
+ * gtk-2.0 tutorial
+d48 4
+a51 9
+int light;
+GLfloat light1pos[] = { 3.0, 3.0, 3.0, 0.0 };
+GLfloat light1a[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat light1d[] = { 1.0, 1.0, 1.0, 0.0 };
+GLfloat light1s[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat light2pos[] = { 3.0, 3.0, 3.0, 0.0 };
+GLfloat light2a[] = { 1.0, 1.0, 1.0, 0.0 };
+GLfloat light2d[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat light2s[] = { 0.0, 0.0, 0.0, 0.0 };
+d143 14
+a156 8
+	glLightfv( GL_LIGHT0, GL_AMBIENT, light1a );
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, light1d );
+	glLightfv( GL_LIGHT0, GL_SPECULAR, light1s );
+	glLightfv( GL_LIGHT0, GL_POSITION, light1pos );
+	glLightfv( GL_LIGHT1, GL_AMBIENT, light2a );
+	glLightfv( GL_LIGHT1, GL_DIFFUSE, light2d );
+	glLightfv( GL_LIGHT1, GL_SPECULAR, light2s );
+	glLightfv( GL_LIGHT1, GL_POSITION, light2pos );
+d218 1
+a218 4
+	if( light == 0 ){
+		glDisable( GL_LIGHT0 );
+		glEnable( GL_LIGHT1 );
+	}
+d232 1
+a232 4
+	if( light == 0 ){
+		glDisable( GL_LIGHT1 );
+		glEnable( GL_LIGHT0 );
+	}
+a246 2
+	glDisable( GL_LIGHT0 );
+	glDisable( GL_LIGHT1 );
+d275 1
+d278 2
+d281 1
+d283 1
+@
+
+
+1.5
+log
+@GPL'd!
+@
+text
+@d39 2
+d43 1
+a43 1
+struct brick model[500];
+@
+
+
+1.4
+log
+@cleaned up big time
+@
+text
+@d3 25
+a27 1
+ * the OpenGL functions
+@
+
+
+1.3
+log
+@saving works
+@
+text
+@d15 9
+a23 9
+/* GLOBAL VARIABLES */
+static float zoom;
+static struct brick model[500];	//array of bricks (need to make variable length)
+static int numbricks;			//number of bricks (need to make variable length)
+static struct brick current;			//the selector brick
+static float rotatex, rotatey, rotatez;	//rotation variables
+static float panx, pany, panz;		//panning variables
+static int grid;
+static int origin;
+d26 13
+a38 13
+static int light;	//which light is on?
+//Diffuse Light
+static GLfloat light1pos[] = { 3.0, 3.0, 3.0, 0.0 };
+static GLfloat light1a[] = { 0.0, 0.0, 0.0, 0.0 };
+static GLfloat light1d[] = { 1.0, 1.0, 1.0, 0.0 };
+static GLfloat light1s[] = { 0.0, 0.0, 0.0, 0.0 };
+//Ambient Light
+static GLfloat light2pos[] = { 3.0, 3.0, 3.0, 0.0 };
+static GLfloat light2a[] = { 1.0, 1.0, 1.0, 0.0 };
+static GLfloat light2d[] = { 0.0, 0.0, 0.0, 0.0 };
+static GLfloat light2s[] = { 0.0, 0.0, 0.0, 0.0 };
+
+static void eraseall(){
+d42 2
+a43 1
+static void movereset(){
+d49 2
+a50 1
+static void rotatereset(){
+d56 2
+a57 1
+static void panreset(){
+d63 2
+a64 1
+static void zoomreset(){
+d68 2
+a69 1
+static void resetall(){
+d76 2
+a77 2
+//moves the selector brick
+static void moveBlock( int x, int y, int z ){
+d83 2
+a84 2
+//deletes selected brick
+static void clearBlock() {
+d103 2
+a104 2
+//places brick of appropriate color at selected space
+static void setBlock(){
+d124 2
+a125 2
+//Draws the lights
+static void drawLight(){
+d136 2
+a137 2
+//Draws a single cube
+static void drawCube( struct brick b ){
+d146 1
+a146 3
+static void drawGrid(){
+	float zh = -.5 * zoom;
+	float x, y, z;
+d148 1
+a148 1
+	glColor3ub( 200, 200, 200 );
+d150 3
+a152 5
+		for( x = zh; x < 1; x += 10 * zoom ){
+			for( y = zh; y < 1; y += 10 * zoom ){
+				glVertex3f( x, y, zh );
+				glVertex3f( x, y, 1 - zh );
+			}
+d154 3
+a156 11
+		for( x = zh; x < 1; x += 10 * zoom ){
+			for( z = zh; z < 1; z += 10 * zoom ){
+				glVertex3f( x, zh, z );
+				glVertex3f( x, 1-zh, z );
+			}
+		}
+		for( z = zh; z < 1; z += 10 * zoom ){
+			for( y = zh; y < 1; y += 10 * zoom ){
+				glVertex3f( zh, y, z );
+				glVertex3f( 1 - zh, y, z );
+			}
+d164 1
+a164 1
+static void drawOrigin(){
+d184 2
+a185 2
+//draw all the cubes in the model, then the selector brick
+static void drawStuff(){
+d188 2
+a189 1
+	//Rotate around
+d193 2
+a194 1
+	//Draw the selector block, always ambiently lighted
+d216 2
+a217 1
+	//Draw all the blocks in the model
+d225 83
+@
+
+
+1.2
+log
+@zoom crash fixed
+origin and grid added
+almost done
+@
+text
+@d13 1
+a13 4
+
+struct brick{
+	int x, y, z, r, g, b;
+};
+d38 4
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d25 2
+d139 51
+d203 6
+@

@@ -1,0 +1,74 @@
+head	1.1;
+access;
+symbols;
+locks
+	apreche:1.1; strict;
+comment	@# @;
+
+
+1.1
+date	2004.02.18.23.04.08;	author apreche;	state Exp;
+branches;
+next	;
+
+
+desc
+@done
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@struct input { 
+	float4 position : POSITION; 
+	float3 normal : NORMAL; 
+	float3 VertexColor : DIFFUSE; 
+}; 
+
+struct output { 
+	float4 HPOS : POSITION; 
+	float4 COL0 : COLOR0; 
+}; 
+	
+output main(input IN, 
+			uniform float4x4 ModelViewProj, 
+			uniform float LA,
+			uniform float LY ) { 
+			
+		output OUT;
+		OUT.HPOS = mul( ModelViewProj, IN.position );
+		
+		//input vars
+		float3 C = IN.VertexColor;
+		float3 P = IN.position.xyz;
+		float3 N = IN.normal;
+	
+		float3 EP = float3( 1.0, 1.0, 1.0 );
+		float3 PL;
+		LA = LA / 4;
+		PL.x = 2 * abs( .8 * sin( LA ) ) - 1;
+		PL.y = 1.0;
+		PL.z = 2 * abs( .6 * cos( LA ) ) - 1;
+		
+		
+		//diffuse calc
+		float3 L = normalize( PL - P );
+		float DL = max( dot( N, L ), 0 );
+		float3 DC = C * DL;
+		
+		//specular calc
+		float shine = 255.0;
+		float3 V = normalize( EP - P );
+		float3 H = normalize( L + V );
+		float3 SL = pow( max( dot( N, H ), 0 ), shine );
+		if (DL <= 0 ) SL = 0;
+		float3 SC = C * SL;
+		
+		OUT.COL0.xyz = DC + SC;
+		OUT.COL0.w = 1.0;
+		return OUT;
+}
+@

@@ -1,0 +1,621 @@
+head	1.6;
+access;
+symbols;
+locks
+	apreche:1.6; strict;
+comment	@ * @;
+
+
+1.6
+date	2004.02.18.23.03.27;	author apreche;	state Exp;
+branches;
+next	1.5;
+
+1.5
+date	2004.02.16.23.35.20;	author apreche;	state Exp;
+branches;
+next	1.4;
+
+1.4
+date	2004.02.16.23.02.18;	author apreche;	state Exp;
+branches;
+next	1.3;
+
+1.3
+date	2004.02.15.20.47.07;	author apreche;	state Exp;
+branches;
+next	1.2;
+
+1.2
+date	2004.02.15.18.09.51;	author apreche;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2004.02.14.21.19.29;	author apreche;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.6
+log
+@hand this in
+@
+text
+@/* callbacks.c
+ *
+ * The callback functions
+ * Contains callback functions for gtk+ widgets.
+ *
+ * Open GL Building Blocks
+ * Copyright 2004 Scott Rubin
+ * 
+ * Portions of this code were borrowed from the following sources:
+ * examples in gtkglext cvs repository
+ * gtk-2.0 tutorial
+ *
+ * This file is part of oglbb.
+ *
+ * Foobar is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Foobar is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Foobar; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+#include <stdlib.h>
+#include <gtk/gtk.h>
+#include <unistd.h>
+#include "oglfunc.c"
+#include "blockfile.c"
+
+/* MENU CALLBACK FUNCTIONS */
+void file_new( GtkWidget *w, gpointer data ){
+  eraseall();
+  resetall();
+}
+
+/* EXIT CALLBACK */
+gboolean delete_event( GtkWidget *widget, GdkEvent  *event, gpointer data ){
+    gtk_main_quit();
+    return FALSE;
+}
+
+/* REFRESH THE DRAWING AREA */
+void refresh( GtkButton *button, gpointer data ) {
+     gtk_widget_queue_draw( (GtkWidget *)data );
+}
+
+/* TOGGLE BUTTON CALLBACK*/
+void toggle_button_callback (GtkWidget *widget, gpointer data)
+{
+    if (gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (widget))) 
+    {
+        /* If control reaches here, the toggle button is down */
+		if( (gchar *)data == "L" ){
+			light = 0;
+		}else if( (gchar *)data == "G" ){
+			grid = 0;
+		}else if( (gchar *)data == "O" ){
+			origin = 1;
+		}
+					
+    } else {
+        /* If control reaches here, the toggle button is up */
+    	if( (gchar *)data == "L" ){
+			light = 1;
+		}else if( (gchar *)data == "G" ){
+			grid = 1;
+		}else if( (gchar *)data == "O" ){
+			origin = 0;
+		}
+	}
+}
+
+/* REALIZE CALLBACK FUNCTION */
+void realize ( GtkWidget *widget, gpointer data ){
+
+	GdkGLContext *glcontext = gtk_widget_get_gl_context( widget );
+	GdkGLDrawable *gldrawable = gtk_widget_get_gl_drawable( widget );
+
+	if ( !gdk_gl_drawable_gl_begin( gldrawable, glcontext ) ){
+		return;
+	}
+	
+	/* BEGIN OPENGL CODE */
+	
+	resetall();
+	numbricks = 0;
+	grid = 1;
+	glClearColor( 0.5, 0.5, 0.5, 0.0 );
+	glEnable( GL_POLYGON_SMOOTH );
+    glEnable( GL_DEPTH_TEST );
+	glEnable( GL_COLOR_MATERIAL );
+	glShadeModel( GL_SMOOTH );
+	glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
+	glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
+	glHint( GL_POINT_SMOOTH_HINT, GL_NICEST );
+	glHint( GL_POLYGON_SMOOTH_HINT, GL_NICEST );
+
+	/* END OPENGL CODE */
+	
+	gdk_gl_drawable_gl_end( gldrawable );
+}
+
+/* CONFIGURE CALLBACK FUNCTION */
+gboolean configure_event( GtkWidget *widget, GdkEventConfigure *event,
+                 				 gpointer data ){
+	GdkGLContext *glcontext = gtk_widget_get_gl_context( widget );
+	GdkGLDrawable *gldrawable = gtk_widget_get_gl_drawable( widget );
+
+	if( !gdk_gl_drawable_gl_begin( gldrawable, glcontext ) ){
+		return FALSE;
+	}
+	
+	/* START OPENGL CODE */
+	
+	/* END OPENGL CODE */
+	
+	gdk_gl_drawable_gl_end( gldrawable );
+	return TRUE;
+}
+
+/* EXPOSE CALLBACK FUNCTION */
+gboolean expose_event( GtkWidget *widget, GdkEventExpose *event,
+							  gpointer data ){
+	
+	//g_print( "EXPOSE\n" );
+	GdkGLContext *glcontext = gtk_widget_get_gl_context( widget );
+	GdkGLDrawable *gldrawable = gtk_widget_get_gl_drawable( widget );
+
+	if( !gdk_gl_drawable_gl_begin( gldrawable, glcontext ) ){
+    	return FALSE;
+	}
+	
+	/* START OPENGL CODE */
+		
+		/* see oglfunc.c */
+		display();
+	
+	/* END OPENGL CODE */
+  
+	if( gdk_gl_drawable_is_double_buffered( gldrawable ) ){
+		gdk_gl_drawable_swap_buffers( gldrawable );
+	}else{
+		glFlush();
+	}
+	gdk_gl_drawable_gl_end( gldrawable );
+	return TRUE;
+}
+ 
+/* COLOR SELECTION CALLBACK */
+gboolean colorselect( GtkWidget *widget, GdkEvent *event, 
+					gpointer client_data )
+					{
+  GdkColor color;
+  GtkWidget *colorseldlg = NULL;
+  gint response;
+  GtkColorSelection *colorsel;
+
+      if (colorseldlg == NULL){
+        colorseldlg = gtk_color_selection_dialog_new ("Select new color");
+	  }
+      colorsel = GTK_COLOR_SELECTION (GTK_COLOR_SELECTION_DIALOG (colorseldlg)->colorsel);
+
+      gtk_color_selection_set_previous_color (colorsel, &color);
+      gtk_color_selection_set_current_color (colorsel, &color);
+      gtk_color_selection_set_has_palette (colorsel, TRUE);
+
+      response = gtk_dialog_run (GTK_DIALOG (colorseldlg));
+
+      if (response == GTK_RESPONSE_OK){
+        gtk_color_selection_get_current_color (colorsel, &color);
+		float r = color.red;
+		float g = color.green;
+		float b = color.blue;
+		r = r / 65535.0;
+      	g = g / 65535.0;
+		b = b / 65535.0;
+		r *= 255.0;
+		g *= 255.0;
+		b *= 255.0;
+		current.r = (int)r;
+		current.g = (int)g;
+		current.b = (int)b;
+	  }
+	
+	gtk_widget_hide (colorseldlg);
+	return TRUE;
+}
+@
+
+
+1.5
+log
+@version 1.0
+ph33r!!!
+@
+text
+@a42 2
+
+
+d61 1
+a61 1
+			light = 1;
+d71 1
+a71 1
+			light = 0;
+a94 1
+	light = 0;
+@
+
+
+1.4
+log
+@cleaned up big time
+@
+text
+@a42 13
+void open_file( GtkWidget *w, gpointer data ){
+	g_print( "open file!");
+}
+
+void savecall( GtkWidget *w, GtkFileSelection *fn ){
+	const gchar *filename;
+	filename = gtk_file_selection_get_filename(GTK_FILE_SELECTION (fn));
+	writefile( filename, model, numbricks );
+}
+
+void refresh( GtkButton *button, gpointer data ) {
+     gtk_widget_queue_draw( (GtkWidget *)data );
+}
+a43 21
+void save_file( GtkWidget *w, gpointer   data )
+{
+	GtkWidget *fileget;
+	fileget = gtk_file_selection_new( "Save File As" );
+	
+	g_signal_connect( G_OBJECT(fileget), "destroy",
+						G_CALLBACK(gtk_widget_destroy), NULL);
+	
+	g_signal_connect( G_OBJECT(GTK_FILE_SELECTION(fileget)->ok_button),
+						"clicked", G_CALLBACK( savecall), (gpointer)fileget);
+	
+	g_signal_connect_swapped (GTK_OBJECT (GTK_FILE_SELECTION (fileget)->ok_button),
+                             "clicked",
+                             G_CALLBACK (gtk_widget_destroy), 
+                             (gpointer) fileget); 
+	
+	g_signal_connect_swapped (G_OBJECT (GTK_FILE_SELECTION (fileget)->cancel_button),
+	                      "clicked", G_CALLBACK (gtk_widget_destroy),
+			      G_OBJECT (fileget));
+	gtk_widget_show( fileget );
+}
+d51 4
+a54 1
+
+@
+
+
+1.3
+log
+@saving works
+@
+text
+@a1 1
+ * The GTK callback functions
+d3 26
+a28 2
+ * idle functions borrowed from gears.c
+ * from the gtkglext cvs repository
+d33 1
+d38 1
+a38 1
+static void file_new( GtkWidget *w, gpointer data ){
+d43 1
+a43 1
+static void open_file( GtkWidget *w, gpointer data ){
+d47 1
+a47 1
+static void savecall( GtkWidget *w, GtkFileSelection *fn ){
+d53 5
+a57 2
+static void save_file( GtkWidget *w,
+                         gpointer   data )
+d80 1
+a80 2
+static gboolean delete_event( GtkWidget *widget, GdkEvent  *event, 
+							  gpointer data ){
+d85 1
+a85 65
+/* BUTTON CALLBACK */
+static void callback( GtkWidget *widget, gpointer data ){
+    
+	if((gchar *)data == "z+" ){
+		if( zoom < 0.11 ){
+			zoom += 0.010;
+		}
+	}else if((gchar *)data == "zr" ){
+		 zoomreset();
+	}else if((gchar *)data == "z-" ){
+		if( zoom > 0.02 ){
+			zoom -= 0.010;
+		}
+	}else if((gchar *)data == "mr" ){
+		movereset();
+	}else if((gchar *)data == "rr" ){
+		rotatereset();
+	}else if((gchar *)data == "pr" ){
+		panreset();
+	}else if((gchar *)data == "reset" ){
+		resetall();
+	}else if((gchar *)data == "mx+" ){
+		moveBlock( 1, 0, 0 );
+	}else if((gchar *)data == "mx-" ){
+		moveBlock( -1, 0, 0 );
+	}else if((gchar *)data == "my+" ){
+		moveBlock( 0, 1, 0 );
+	}else if((gchar *)data == "my-" ){
+		moveBlock( 0, -1, 0 );
+	}else if((gchar *)data == "mz+" ){
+		moveBlock( 0, 0, 1 );
+	}else if((gchar *)data == "mz-" ){
+		moveBlock( 0, 0, -1 );
+	}else if((gchar *)data == "rx+" ){
+		rotatex++;
+	}else if((gchar *)data == "rx-" ){
+		rotatex--;
+	}else if((gchar *)data == "ry+" ){
+		rotatey++;
+	}else if((gchar *)data == "ry-" ){
+		rotatey--;
+	}else if((gchar *)data == "rz+" ){
+		rotatez++;
+	}else if((gchar *)data == "rz-" ){
+		rotatez--;
+	}else if((gchar *)data == "px+" ){
+		panx += zoom / 2;
+	}else if((gchar *)data == "px-" ){
+		panx -= zoom / 2;
+	}else if((gchar *)data == "py+" ){
+		pany += zoom / 2;
+	}else if((gchar *)data == "py-" ){
+		panz -= zoom / 2;
+	}else if((gchar *)data == "pz+" ){
+		panz += zoom / 2;
+	}else if((gchar *)data == "pz-" ){
+		panz -= zoom /2;
+	}else if((gchar *)data == "place" ){
+		setBlock();
+	}else if((gchar *)data == "delete" ){
+		clearBlock();
+	}
+	
+	//g_print ( "%s was pressed\n", (gchar *) data );
+}
+d88 1
+a88 1
+static void toggle_button_callback (GtkWidget *widget, gpointer data)
+d114 1
+a114 1
+static void realize ( GtkWidget *widget, gpointer data ){
+d145 1
+a145 1
+static gboolean configure_event( GtkWidget *widget, GdkEventConfigure *event,
+d163 1
+a163 1
+static gboolean expose_event( GtkWidget *widget, GdkEventExpose *event,
+d165 2
+a166 1
+							  
+d175 3
+a177 77
+	//Turn off that light!
+	glDisable( GL_LIGHT0 );
+	glDisable( GL_LIGHT1 );
+	glDisable( GL_LIGHTING );
+	
+	glViewport( 0, 0, 800, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	gluOrtho2D( 0, 800, 0, 600 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	glColor3ub( 255, 255, 255 );
+	
+	//grid around viewports
+	glColor3ub( 255, 255, 255 );
+	glBegin( GL_LINES );
+		glVertex2i( 600, 0 );
+		glVertex2i( 600, 600 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 200 );
+		glVertex2i( 800, 200 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 400 );
+		glVertex2i( 800, 400 );
+	glEnd();
+	
+	//Turn the lights back on!
+	glEnable( GL_LIGHTING );
+	if( light == 0 ){
+		glEnable( GL_LIGHT0 );
+	}else{
+		glEnable( GL_LIGHT1 );
+	}
+	drawLight();
+	
+	//FRONT VIEWPORT
+	glViewport( 600, 400, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.5, 0.5, 3.0, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	//TOP VIEWPORT
+	glViewport( 600, 200, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.5, 3.0, 0.5, 0.5, 0.5, 0.5, 0.0, 0.0, -1.0 );
+	drawStuff();
+	
+	//SIDE VIEWPORT
+	glViewport( 600, 0, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 3.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	//ANGULAR VIEWPORT (the main one)
+	glViewport( 0, 0, 600, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 5.0, 5.0, 5.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0 );
+	drawStuff();
+a188 6
+
+/* COLOR SELECTION CALLBACK
+ * 
+ * I got some help on this one from the official gtk+-2.0 API and tutorials
+ *
+ */
+d190 4
+a193 4
+ static gboolean colorselect( GtkWidget *widget,
+                            GdkEvent  *event,
+                            gpointer   client_data )
+{
+a195 1
+  gint handled = FALSE;
+a198 1
+  /* Create color selection dialog */
+a201 1
+      /* Get the ColorSelection widget */
+a207 1
+      /* Show the dialog */
+a223 1
+		//g_print( "%f, %f, %f\n", r, g, b );
+a224 2
+	  
+      gtk_widget_hide (colorseldlg);
+d226 1
+a228 45
+ 
+/* IDLE CALLBACKS
+ *
+ * all these do is constantly call the expose callback in an infinite loop
+ * this makes the drawing area constantly refresh itself
+ * the extraneous code keeps the are from constantly refreshing other
+ * callbacks have priority. This keeps the gui smooth and responsive
+ */
+static guint idle_id = 0;
+
+static gboolean idle (GtkWidget *widget){
+	gdk_window_invalidate_rect (widget->window, &widget->allocation, FALSE);
+	gdk_window_process_updates (widget->window, FALSE);
+	return TRUE;
+}
+
+
+static gboolean
+map (GtkWidget   *widget,
+     GdkEventAny *event,
+     gpointer     data)
+{
+  if (idle_id == 0)
+    {
+      idle_id = gtk_idle_add_priority (GDK_PRIORITY_REDRAW,
+				       (GtkFunction) idle,
+				       widget);
+    }
+
+  return TRUE;
+}
+
+static gboolean
+unmap (GtkWidget   *widget,
+       GdkEventAny *event,
+       gpointer     data)
+{
+  if (idle_id != 0)
+    {
+      gtk_idle_remove (idle_id);
+      idle_id = 0;
+    }
+
+  return TRUE;
+}
+@
+
+
+1.2
+log
+@zoom crash fixed
+origin and grid added
+almost done
+@
+text
+@d9 1
+d11 40
+d345 1
+a345 1
+		g_print( "%f, %f, %f\n", r, g, b );
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d22 3
+a24 1
+		zoom += .01;
+d28 3
+a30 1
+		zoom -= .01;
+d81 27
+a107 1
+	g_print ( "%s was pressed\n", (gchar *) data );
+d124 2
+d216 1
+a216 1
+	gluLookAt( 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 );
+d226 1
+a226 1
+	gluLookAt( 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0 );
+d236 1
+a236 1
+	gluLookAt( 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 );
+d246 1
+a246 1
+	gluLookAt( 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0 );
+@

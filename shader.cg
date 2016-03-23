@@ -1,0 +1,75 @@
+/* shader.cg
+ *
+ * The NVidia Cg Shader
+ *
+ * Open GL Building Blocks
+ * Copyright 2004 Scott Rubin
+ *
+ * This file is part of oglbb.
+ *
+ * oglbb is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * oglbb is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with oglbb; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+
+
+struct input { 
+	float4 position : POSITION; 
+	float3 normal : NORMAL; 
+	float3 VertexColor : DIFFUSE; 
+}; 
+
+struct output { 
+	float4 HPOS : POSITION; 
+	float4 COL0 : COLOR0; 
+}; 
+	
+output main(input IN, 
+			uniform float4x4 ModelViewProj, 
+			uniform float LA,
+			uniform float LY ) { 
+			
+		output OUT;
+		OUT.HPOS = mul( ModelViewProj, IN.position );
+		
+		//input vars
+		float3 C = IN.VertexColor;
+		float3 P = IN.position.xyz;
+		float3 N = IN.normal;
+	
+		float3 EP = float3( 1.0, 1.0, 1.0 );
+		float3 PL;
+		LA = LA / 4;
+		PL.x = 2 * abs( .8 * sin( LA ) ) - 1;
+		PL.y = 1.0;
+		PL.z = 2 * abs( .6 * cos( LA ) ) - 1;
+		
+		
+		//diffuse calc
+		float3 L = normalize( PL - P );
+		float DL = max( dot( N, L ), 0 );
+		float3 DC = C * DL;
+		
+		//specular calc
+		float shine = 255.0;
+		float3 V = normalize( EP - P );
+		float3 H = normalize( L + V );
+		float3 SL = pow( max( dot( N, H ), 0 ), shine );
+		if (DL <= 0 ) SL = 0;
+		float3 SC = C * SL;
+		
+		OUT.COL0.xyz = DC + SC;
+		OUT.COL0.w = 1.0;
+		return OUT;
+}

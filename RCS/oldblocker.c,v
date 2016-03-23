@@ -1,0 +1,481 @@
+head	1.2;
+access;
+symbols;
+locks; strict;
+comment	@ * @;
+
+
+1.2
+date	2004.02.18.01.02.18;	author apreche;	state Exp;
+branches;
+next	1.1;
+
+1.1
+date	2004.02.14.21.19.32;	author apreche;	state Exp;
+branches;
+next	;
+
+
+desc
+@@
+
+
+1.2
+log
+@*** empty log message ***
+@
+text
+@/* shader.c
+ *
+ * OpenGL functions
+ *
+ * Open GL Building Blocks
+ * Copyright 2004 Scott Rubin
+ *
+ * This file is part of oglbb.
+ *
+ * Foobar is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * Foobar is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Foobar; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ */
+ 
+#include <stdio.h>
+#include <stdlib.h>
+#include <GL/glut.h>
+#include "blockfile.c"
+//GLOBAL VARIABLES
+float zoom;					//zoom level
+struct brick model[500];	//array of bricks (need to make variable length)
+int numbricks;				//number of bricks (need to make variable length)
+struct brick current;		//the selector brick
+float rotatex, rotatey, rotatez;	//rotation variables
+
+//LIGHTS DEFINED
+int light;	//which light is on?
+//Diffuse Light
+GLfloat light1pos[] = { 3.0, 3.0, 3.0, 0.0 };
+GLfloat light1a[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat light1d[] = { 1.0, 1.0, 1.0, 0.0 };
+GLfloat light1s[] = { 0.0, 0.0, 0.0, 0.0 };
+//Ambient Light
+GLfloat light2pos[] = { 3.0, 3.0, 3.0, 0.0 };
+GLfloat light2a[] = { 1.0, 1.0, 1.0, 0.0 };
+GLfloat light2d[] = { 0.0, 0.0, 0.0, 0.0 };
+GLfloat light2s[] = { 0.0, 0.0, 0.0, 0.0 };
+
+//resets rotation, zoom, light, selector brick
+void reset(){
+	light = 0;		//diffuse lighting default
+	rotatex = 0;
+	rotatey = 0;
+	rotatez = 0;
+	zoom = .1;
+	current.x = 0;
+	current.y = 0;
+	current.z = 0;
+	current.r = 0;
+	current.g = 0;
+	current.b = 0;
+}
+
+//moves the selector brick
+void moveBlock( int x, int y, int z ){
+	current.x += x;
+	current.y += y;
+	current.z += z;
+}
+
+//deletes selected brick
+void clearBlock() {
+
+	int brick = -1;
+	for( int n=0; n < numbricks; n++ ){
+		if( model[n].x == current.x &&
+			model[n].y == current.y &&
+			model[n].z == current.z ){
+					brick = n;
+		}
+	}
+	if( brick != -1 ){
+		for( brick; brick < numbricks-1; brick++ ){
+			model[brick] = model[brick+1];
+		}
+		numbricks--;
+	}
+}
+
+
+void grabBlock(){
+	for( int n=0; n < numbricks; n++ ){
+		if( model[n].x == current.x &&
+			model[n].y == current.y &&
+			model[n].z == current.z){
+				current.r = model[n].r;
+				current.g = model[n].g;
+				current.b = model[n].b;
+		}
+	}
+}
+
+
+//places brick of appropriate color at selected space
+void setBlock(){
+	int replace=0;
+	if( numbricks < 500 ){
+		for( int n=0; n < numbricks; n++ ){
+			if( model[n].x == current.x &&
+				model[n].y == current.y &&
+				model[n].z == current.z ){
+					model[n] = current;
+					replace = 1;
+			}
+		}
+		if( replace == 0 ){
+			model[numbricks] = current;
+			numbricks++;
+		}
+	}else{
+		printf( "OUT OF BRICKS\n" );
+	}
+}
+
+//Draws the lights
+void drawLight(){
+	glLightfv( GL_LIGHT0, GL_AMBIENT, light1a );
+	glLightfv( GL_LIGHT0, GL_DIFFUSE, light1d );
+	glLightfv( GL_LIGHT0, GL_SPECULAR, light1s );
+	glLightfv( GL_LIGHT0, GL_POSITION, light1pos );
+	glLightfv( GL_LIGHT1, GL_AMBIENT, light2a );
+	glLightfv( GL_LIGHT1, GL_DIFFUSE, light2d );
+	glLightfv( GL_LIGHT1, GL_SPECULAR, light2s );
+	glLightfv( GL_LIGHT1, GL_POSITION, light2pos );
+}
+
+//Draws a single cube
+void drawCube( struct brick b ){
+	glPushMatrix();
+		glColor3ub( b.r, b.g, b.b );
+		glTranslatef( zoom * b.x, zoom *  b.y, zoom * b.z );
+		glutSolidCube( zoom );
+	glPopMatrix();
+}
+
+//draw all the cubes in the model, then the selector brick
+void drawStuff(){
+	glPushMatrix();
+	//Rotate around
+	glRotatef( rotatex, 1.0, 0.0, 0.0 );
+	glRotatef( rotatey, 0.0, 1.0, 0.0 );
+	glRotatef( rotatez, 0.0, 0.0, 1.0 );
+	//Draw the selector block, always ambiently lighted
+	if( light == 0 ){
+		glDisable( GL_LIGHT0 );
+		glEnable( GL_LIGHT1 );
+	}
+	glPushMatrix();
+		glColor3ub( 255, 255, 255 );
+		glTranslatef( zoom * current.x, zoom * current.y, zoom * current.z );
+		glutWireCube( zoom );
+		glColor3ub( current.r, current.g, current.b );
+		glutSolidCube( zoom );
+	glPopMatrix();
+	if( light == 0 ){
+		glDisable( GL_LIGHT1 );
+		glEnable( GL_LIGHT0 );
+	}
+	//Draw all the blocks in the model
+	glPushMatrix();
+		for( int x=0; x < numbricks; x++ ){
+			drawCube( model[x] );
+		}
+	glPopMatrix();
+	glPopMatrix();
+}
+
+
+//The almighty display function
+void display( void ) {
+
+	//Turn off that light!
+	glDisable( GL_LIGHT0 );
+	glDisable( GL_LIGHT1 );
+	glDisable( GL_LIGHTING );
+
+	//MAIN WINDOW
+	glViewport( 0, 0, 800, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	gluOrtho2D( 0, 800, 0, 600 );
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+	
+	//grid around viewports
+	glColor3ub( 255, 255, 255 );
+	glBegin( GL_LINES );
+		glVertex2i( 600, 0 );
+		glVertex2i( 600, 600 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 200 );
+		glVertex2i( 800, 200 );
+	glEnd();
+	glBegin( GL_LINES );
+		glVertex2i( 600, 400 );
+		glVertex2i( 800, 400 );
+	glEnd();
+	
+	//color sample square
+	glColor3ub( current.r, current.g, current.b );
+	glBegin( GL_QUADS );
+		glVertex2i( 550, 550 );
+		glVertex2i( 550, 600 );
+		glVertex2i( 600, 600 );
+		glVertex2i( 600, 550 );
+	glEnd();
+	
+	//Turn the lights back on!
+	glEnable( GL_LIGHTING );
+	if( light == 0 ){
+		glEnable( GL_LIGHT0 );
+	}else{
+		glEnable( GL_LIGHT1 );
+	}
+	drawLight();
+	
+	//FRONT VIEWPORT
+	glViewport( 600, 400, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	//TOP VIEWPORT
+	glViewport( 600, 200, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0 );
+	drawStuff();
+
+	//SIDE VIEWPORT
+	glViewport( 600, 0, 200, 200 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0 );
+	drawStuff();
+
+	//ANGULAR VIEWPORT (the main one)
+	glViewport( 0, 0, 600, 600 );
+	glMatrixMode( GL_PROJECTION );
+	glLoadIdentity();
+	glOrtho( -1.0, 1.0, -1.0, 1.0, 1, 256 );//change
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
+	gluLookAt( 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0 );
+	drawStuff();
+	
+	//draw!
+	glutSwapBuffers();
+
+}
+
+//sit there doing nothing...
+void idle(){}
+
+//switch on all the keyboard inputs
+void keyboard( unsigned char key, int x, int y ) {
+
+    switch ( key ) {
+    	case 27 :
+	  		exit( 0 );
+	  		break;
+		case '+' :
+			zoom += 0.01;
+			break;
+		case '-' :
+			zoom -= 0.01;
+			if ( zoom <= 0.01 ){
+				zoom = 0.01;
+			}
+			break;
+		case 'w' :
+			moveBlock( 0, 1, 0 );
+			break;
+		case 'a' :
+			moveBlock( -1, 0, 0 );
+			break;
+		case 's' :
+			moveBlock( 0, -1, 0 );
+			break;
+		case 'd' :
+			moveBlock( 1, 0, 0 );
+			break;
+		case 'q' :
+			moveBlock( 0, 0, 1 );
+			break;
+		case 'e' : 
+			moveBlock( 0, 0, -1 );
+			break;
+		case ' ' :
+			setBlock();
+			break;
+		case 'r' :
+			rotatey += 5;
+			break;
+		case 't' :
+			rotatey -= 5;
+			break;
+		case 'f' :
+			rotatez += 5;
+			break;
+		case 'g' : 
+			rotatez -= 5;
+			break;
+		case 'v' :
+			rotatex += 5;
+			break;
+		case 'b' :
+			rotatex -= 5;
+			break;	
+		case 'u' :
+			reset();
+			break;
+		case '1' :
+			current.r++;
+			break;
+		case '2' :
+			current.r--;
+			break;
+		case '3' :
+			current.g++;
+			break;
+		case '4' :
+			current.g--;
+			break;
+		case '5' :
+			current.b++;
+			break;
+		case '6' :
+			current.b--;
+			break;
+		case '0' :
+			clearBlock();
+			break;
+		case 'l' :
+			if( light == 0 ){
+				light=1;
+			}else{
+				light=0;
+			}
+			break;
+		case 'k' :
+			grabBlock();
+			break;
+		case '.':
+			writefile( "foo", model, 500 );
+			break;
+			
+	}
+	
+	glutPostRedisplay();
+
+}
+
+//Initializer
+void init( void ) {
+
+	reset();
+	numbricks = 0;
+	glClearColor( 0.5, 0.5, 0.5, 0.0 );
+	glEnable( GL_POLYGON_SMOOTH );
+    glEnable( GL_DEPTH_TEST );
+	glEnable( GL_COLOR_MATERIAL );
+	glShadeModel( GL_SMOOTH );
+	glHint( GL_LINE_SMOOTH_HINT, GL_NICEST );
+	glHint( GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST );
+	glHint( GL_POINT_SMOOTH_HINT, GL_NICEST );
+	glHint( GL_POLYGON_SMOOTH_HINT, GL_NICEST );
+
+}
+
+//THE MAIN!
+int main( int argc, char** argv ) {
+
+	//GLUT
+	glutInit( &argc, argv );
+	glutInitDisplayMode( GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
+	glutInitWindowPosition( 10, 10 );
+	glutInitWindowSize( 800, 600 );
+	glutCreateWindow( "OpenGL Building Blocks - by Scott Rubin" );
+	glutKeyboardFunc( keyboard );
+	glutDisplayFunc( display );
+	glutIdleFunc( idle );
+
+	init();
+	glutMainLoop( );
+
+	return 0;
+}
+@
+
+
+1.1
+log
+@Initial revision
+@
+text
+@d1 1
+a1 11
+//Computer Graphics II Project
+//OpenGL Building Blocks
+//Scott Rubin
+
+/* RCS INFO
+ *
+ * $Id: oldblocker.c,v 1.1 2004/02/14 21:18:29 apreche Exp apreche $
+ *
+ * $Log: oldblocker.c,v $
+ * Revision 1.1  2004/02/14 21:18:29  apreche
+ * Initial revision
+d3 1
+a3 2
+ * Revision 1.3  2004/02/04 00:43:45  apreche
+ * *** empty log message ***
+d5 2
+a6 2
+ * Revision 1.4  2004/01/22 16:45:17  slr2777
+ * fixed bug with selector block, adding in file writing
+d8 1
+a8 2
+ * Revision 1.2  2004/01/18 23:36:03  apreche
+ * added block color grabbing
+d10 4
+a13 2
+ * Revision 1.1  2004/01/18 00:04:09  apreche
+ * Initial revision
+d15 4
+a18 2
+ * Revision 1.3  2004/01/16 21:58:21  slr2777
+ * added RCS commends in header so this will actually do something
+d20 3
+@

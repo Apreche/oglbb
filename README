@@ -1,0 +1,39 @@
+OpenGL Building Blocks (oglbb)
+by Scott Rubin
+
+This program is my term project for Computer Graphics 2
+
+This program allows the user to create 3d models consisting solely of cubes.  It
+has many features including zoom, pan, 32 bit color, save and load and more. 
+
+The gui is simple and self explanatory, I hope. It is made using gtk+-2.0, 
+gtkglext and OpenGL. To run the program do the following
+
+unzip and untar the source
+since you are reading this you must have done this already
+
+run "make"
+
+run "./oglbb"
+
+That's it! This program has been tested and found to work with the following
+
+gtk+-2.0
+gtkglext-1.0
+Solaris 9
+Linux 2.6.0
+gcc 3.3
+NVidia Cg Toolkit
+
+
+Contents of this directory:
+
+CHANGELOG - what was done in each version of the program
+COPYING - The License
+Makefile - The Makefile
+RCS - The source repository
+README - This file
+*.c, *.h, *.cg - source files
+oglbb - oglbb executable
+shader - shader executable
+samples/*.bmd - example models
